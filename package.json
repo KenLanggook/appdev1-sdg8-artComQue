@@ -1,6 +1,7 @@
 {
-  "name": "my-app",
-  "version": "0.0.0",
+  "name": "appdev1-sdg8-artComQue",
+  "version": "1.0.0",
+  "description": "A web-based system for managing and tracking art commissions supporting SDG 8",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
