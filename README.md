@@ -23,10 +23,14 @@ Track status (Pending, In Progress, Completed)
 Organized queue system
 Edit and update commission details
 Delete completed or cancelled requests
-Technologies Used
-Frontend: Angular
-Backend: (if applicable)
-Storage: (e.g., Local Storage / API / Database)
+
+## Technologies Used
+- **Frontend**: Angular 19
+- **Backend**: Node.js/Express (planned)
+- **Storage**: Local Storage / REST API / MongoDB (planned)
+- **Build Tool**: Angular CLI
+- **Package Manager**: npm
+
 🚀 Local Setup Instructions
 
 Follow these steps to run the project locally:
