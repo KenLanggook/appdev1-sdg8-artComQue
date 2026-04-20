@@ -57,22 +57,4 @@ export class LoginComponent {
   goToRegister() {
     this.router.navigate(['/register']);
   }
-
-  // Demo credentials for testing
-  fillDemoCredentials(role: 'admin' | 'security' | 'student') {
-    switch (role) {
-      case 'admin':
-        this.loginData.username = 'admin';
-        this.loginData.password = 'admin123';
-        break;
-      case 'security':
-        this.loginData.username = 'security';
-        this.loginData.password = 'security123';
-        break;
-      case 'student':
-        this.loginData.username = 'student';
-        this.loginData.password = 'student123';
-        break;
-    }
-  }
 }
