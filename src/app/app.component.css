@@ -5,7 +5,10 @@
 }
 
 .main-nav {
-  background: linear-gradient(135deg, #4a4a4a, #2c2c2c);
+  background-image: linear-gradient(rgba(74, 74, 74, 0.85), rgba(44, 44, 44, 0.9)), url('/university-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   color: #ffffff;
   padding: 0;
   box-shadow: 0 2px 10px rgba(0,0,0,0.2);
