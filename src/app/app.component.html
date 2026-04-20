@@ -1,5 +1,45 @@
-<app-navi></app-navi>
-<div class="container">
-  <router-outlet></router-outlet>
+<div class="app-container">
+  <!-- Navigation Bar (only show when authenticated and not on auth pages) -->
+  <nav class="main-nav" *ngIf="currentUrl !== '/login' && currentUrl !== '/register'">
+    <div class="nav-brand">
+      <h1>University of Baguio</h1>
+      <span class="nav-subtitle">Incident Report System</span>
+    </div>
+    
+    <div class="nav-menu">
+      <a routerLink="/dashboard" class="nav-link" routerLinkActive="active">
+        <span class="nav-icon">dashboard</span>
+        Dashboard
+      </a>
+      <a routerLink="/map" class="nav-link" routerLinkActive="active">
+        <span class="nav-icon">map</span>
+        Map View
+      </a>
+      <a routerLink="/report" class="nav-link" routerLinkActive="active">
+        <span class="nav-icon">report</span>
+        New Report
+      </a>
+      <a routerLink="/incidents" class="nav-link" routerLinkActive="active">
+        <span class="nav-icon">list</span>
+        Reports List
+      </a>
+    </div>
+    
+    <div class="nav-user" *ngIf="isAuthenticated">
+      <div class="user-info">
+        <span class="user-name">{{ getUserDisplayName() }}</span>
+        <span class="user-role">{{ currentUser?.role?.toUpperCase() }}</span>
+      </div>
+      <button class="logout-btn" (click)="logout()">
+        <span class="logout-icon">logout</span>
+        Logout
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content" [class.authenticated]="isAuthenticated">
+    <router-outlet></router-outlet>
+  </main>
 </div>
 <footer></footer>

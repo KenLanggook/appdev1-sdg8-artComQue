@@ -1,0 +1,8 @@
+<h2>Supplier Details</h2>
+<div *ngIf="supplier">
+  <h3>{{ supplier.name }}</h3>
+  <p>Location: {{ supplier.location }}</p>
+  <p>Email: {{ supplier.email }}</p>
+  <p>Phone: {{ supplier.phone }}</p>
+  <a routerLink="/suppliers">Back to Suppliers</a>
+</div>

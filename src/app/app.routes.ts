@@ -1,26 +1,13 @@
 import { Routes } from '@angular/router';
-import { HomeComponent } from './comps/home/home.component';
-import { InterpolationComponent } from './interpolation/interpolation.component';
-import { PropertyBinding } from './property-binding/property-binding.component';
-import { EventBinding } from './event/event.component';
-import { TwoWayBinding } from './two-way/two-way.component';
-import { ProductListComponent } from './products/product-list/product-list.component';
-import { ProductDetailsComponent } from './products/product-details/product-details.component';
-import { ProductSearchComponent } from './user/user.component';
-import { SuppliersListComponent } from './comps/suppliers-list/suppliers-list.component';
-import { SupplierDetailsComponent } from './comps/supplier-details/supplier-details.component';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'home', pathMatch: 'full' },
-  { path: 'home', component: HomeComponent },
-  { path: 'interpolation', component: InterpolationComponent },
-  { path: 'property-binding', component: PropertyBinding },
-  { path: 'event', component: EventBinding },
-  { path: 'two-way', component: TwoWayBinding },
-  { path: 'suppliers', component: SuppliersListComponent },
-  { path: 'suppliers/:id', component: SupplierDetailsComponent },
-  { path: 'products/:id', component: ProductDetailsComponent },
-  { path: 'products', component: ProductListComponent },
-  { path: 'user', component: ProductSearchComponent },
-  { path: '**', redirectTo: 'home' }
+  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: 'login', loadComponent: () => import('./comps/auth/login/login.component').then(m => m.LoginComponent) },
+  { path: 'register', loadComponent: () => import('./comps/auth/register/register.component').then(m => m.RegisterComponent) },
+  { path: 'dashboard', loadComponent: () => import('./comps/dashboard/dashboard.component').then(m => m.DashboardComponent) },
+  { path: 'map', loadComponent: () => import('./comps/incident-map/incident-map.component').then(m => m.IncidentMapComponent) },
+  { path: 'report', loadComponent: () => import('./comps/report-incident/report-incident.component').then(m => m.ReportIncidentComponent) },
+  { path: 'incidents', loadComponent: () => import('./comps/incident-list/incident-list.component').then(m => m.IncidentListComponent) },
+  { path: 'incidents/:id', loadComponent: () => import('./comps/incident-details/incident-details.component').then(m => m.IncidentDetailsComponent) },
+  { path: '**', redirectTo: 'login' }
 ];

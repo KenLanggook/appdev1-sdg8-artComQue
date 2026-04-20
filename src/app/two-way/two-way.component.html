@@ -1,0 +1,8 @@
+<h2>Two-Way Binding Demo</h2>
+<input [(ngModel)]="name" placeholder="Enter your name">
+<p *ngIf="name">Hello, {{ name }}!</p>
+
+<br>
+
+<textarea [(ngModel)]="description" placeholder="Enter description"></textarea>
+<p *ngIf="description">Description: {{ description }}</p>
