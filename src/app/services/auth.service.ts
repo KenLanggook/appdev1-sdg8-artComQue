@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import { User, UserRole } from '../models/incident.model';
 
 @Injectable({
@@ -9,8 +11,9 @@ export class AuthService {
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   private isAuthenticatedSubject = new BehaviorSubject<boolean>(false);
   private users: User[] = [];
+  private readonly API_URL = 'api/auth'; // This will use the proxy configuration
 
-  constructor() {
+  constructor(private http: HttpClient) {
     this.initializeMockUsers();
     this.checkExistingSession();
   }
