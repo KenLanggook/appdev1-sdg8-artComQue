@@ -47,20 +47,16 @@ export class IncidentDetailsComponent implements OnInit {
 
   updateStatus(newStatus: IncidentStatus) {
     if (this.incident) {
-      this.incidentService.updateIncident(this.incident.id, { status: newStatus }).subscribe(success => {
-        if (success) {
-          this.loadIncident(this.incident!.id);
-        }
+      this.incidentService.updateIncident(this.incident.id, { status: newStatus }).subscribe(() => {
+        this.loadIncident(this.incident!.id);
       });
     }
   }
 
   deleteIncident() {
     if (this.incident && confirm('Are you sure you want to delete this incident?')) {
-      this.incidentService.deleteIncident(this.incident.id).subscribe(success => {
-        if (success) {
-          this.router.navigate(['/incidents']);
-        }
+      this.incidentService.deleteIncident(this.incident.id).subscribe(() => {
+        this.router.navigate(['/incidents']);
       });
     }
   }

@@ -110,8 +110,8 @@
   </div>
 
   <!-- Empty State -->
-  <div class="empty-state" *ngIf="!isLoading && filteredIncidents.length === 0">
-    <p>No incidents found matching your criteria.</p>
+  <div class="empty-state" *ngIf="!isLoading && (incidents$ | async)?.length === 0">
+    <p>No incidents found.</p>
     <a routerLink="/report" class="btn btn-primary">Report First Incident</a>
   </div>
 </div>

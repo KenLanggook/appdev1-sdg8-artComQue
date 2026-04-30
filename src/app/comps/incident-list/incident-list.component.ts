@@ -17,7 +17,6 @@ import { map, startWith } from 'rxjs/operators';
 })
 export class IncidentListComponent implements OnInit {
   incidents$: Observable<Incident[]> = new Observable();
-  filteredIncidents$: Observable<Incident[]> = new Observable();
   statusFilter = '';
   severityFilter = '';
   searchTerm = '';
@@ -47,17 +46,7 @@ export class IncidentListComponent implements OnInit {
   }
 
   applyFilters() {
-    this.incidents$.subscribe(incidents => {
-      this.filteredIncidents = incidents.filter(incident => {
-        const matchesStatus = !this.statusFilter || incident.status === this.statusFilter;
-        const matchesSeverity = !this.severityFilter || incident.severity === this.severityFilter;
-        const matchesSearch = !this.searchTerm || 
-          incident.title.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-          incident.description.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-          incident.location.address.toLowerCase().includes(this.searchTerm.toLowerCase());
-        return matchesStatus && matchesSeverity && matchesSearch;
-      });
-    });
+    // Filtering will be handled by the template with async pipe
   }
 
   onFilterChange() {
@@ -65,19 +54,15 @@ export class IncidentListComponent implements OnInit {
   }
 
   updateIncidentStatus(incidentId: string, newStatus: IncidentStatus) {
-    this.incidentService.updateIncident(incidentId, { status: newStatus }).subscribe(success => {
-      if (success) {
-        this.loadIncidents();
-      }
+    this.incidentService.updateIncident(incidentId, { status: newStatus }).subscribe(() => {
+      this.loadIncidents();
     });
   }
 
   deleteIncident(incidentId: string) {
     if (confirm('Are you sure you want to delete this incident?')) {
-      this.incidentService.deleteIncident(incidentId).subscribe(success => {
-        if (success) {
-          this.loadIncidents();
-        }
+      this.incidentService.deleteIncident(incidentId).subscribe(() => {
+        this.loadIncidents();
       });
     }
   }
