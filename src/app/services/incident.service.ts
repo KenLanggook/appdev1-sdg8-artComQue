@@ -250,11 +250,6 @@ export class IncidentService {
   }
 
   searchIncidents(query: string): Observable<Incident[]> {
-    const filtered = this.incidents.filter(incident =>
-      incident.title.toLowerCase().includes(query.toLowerCase()) ||
-      incident.description.toLowerCase().includes(query.toLowerCase()) ||
-      incident.location.address.toLowerCase().includes(query.toLowerCase())
-    );
-    return of(filtered);
+    return this.http.get<Incident[]>(`${this.apiUrl}?search=${query}`);
   }
 }
