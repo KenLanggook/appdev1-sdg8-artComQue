@@ -14,7 +14,6 @@ YSMAEL PASION
 MARK LLOYD YADAO
 KEN LANGGOOK
 
-Developer: Mark Lloyd Yadao (20236590@s.ubaguio.edu)
 Last updated: April 30, 2026
 
 📌 Features
