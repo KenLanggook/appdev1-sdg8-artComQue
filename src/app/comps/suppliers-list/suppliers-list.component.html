@@ -1,7 +1,0 @@
-<h2>Suppliers List</h2>
-<div *ngFor="let supplier of suppliers">
-  <h3>{{ supplier.name }}</h3>
-  <p>Location: {{ supplier.location }}</p>
-  <a [routerLink]="['/suppliers', supplier.id]">View Details</a>
-  <hr>
-</div>
