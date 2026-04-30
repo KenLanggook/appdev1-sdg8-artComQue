@@ -162,8 +162,7 @@ export class IncidentService {
   }
 
   getIncidentsByReporter(reporterId: string): Observable<Incident[]> {
-    const filtered = this.incidents.filter(i => i.reportedBy === reporterId);
-    return of(filtered);
+    return this.http.get<Incident[]>(`${this.apiUrl}?reporter=${reporterId}`);
   }
 
   getMapMarkers(): Observable<MapMarker[]> {
