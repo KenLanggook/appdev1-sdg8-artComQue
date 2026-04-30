@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Observable, combineLatest, BehaviorSubject } from 'rxjs';
+import { map, startWith } from 'rxjs/operators';
 import { IncidentService } from '../../services/incident.service';
 import { AuthService } from '../../services/auth.service';
 import { Incident, IncidentStatus, IncidentSeverity } from '../../models/incident.model';
@@ -14,11 +16,11 @@ import { Incident, IncidentStatus, IncidentSeverity } from '../../models/inciden
   styleUrls: ['./incident-list.component.css']
 })
 export class IncidentListComponent implements OnInit {
-  incidents: Incident[] = [];
-  filteredIncidents: Incident[] = [];
-  statusFilter = '';
-  severityFilter = '';
-  searchTerm = '';
+  incidents$ = this.incidentService.getIncidents();
+  filteredIncidents$: Observable<Incident[]>;
+  private statusFilterSubject = new BehaviorSubject<string>('');
+  private severityFilterSubject = new BehaviorSubject<string>('');
+  private searchTermSubject = new BehaviorSubject<string>('');
   isLoading = false;
   isAdmin = false;
 
@@ -32,49 +34,57 @@ export class IncidentListComponent implements OnInit {
 
   ngOnInit() {
     this.isAdmin = this.authService.isAdmin();
-    this.loadIncidents();
+    this.filteredIncidents$ = combineLatest([
+      this.incidents$,
+      this.statusFilterSubject.asObservable(),
+      this.severityFilterSubject.asObservable(),
+      this.searchTermSubject.asObservable()
+    ]).pipe(
+      map(([incidents, statusFilter, severityFilter, searchTerm]) => {
+        return incidents.filter(incident => {
+          const matchesStatus = !statusFilter || incident.status === statusFilter;
+          const matchesSeverity = !severityFilter || incident.severity === severityFilter;
+          const matchesSearch = !searchTerm || 
+            incident.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            incident.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            incident.location.address.toLowerCase().includes(searchTerm.toLowerCase());
+          return matchesStatus && matchesSeverity && matchesSearch;
+        });
+      })
+    );
   }
 
-  loadIncidents() {
-    this.isLoading = true;
-    this.incidentService.getIncidents().subscribe(data => {
-      this.incidents = data;
-      this.applyFilters();
-      this.isLoading = false;
-    });
+  get statusFilter(): string {
+    return this.statusFilterSubject.value;
   }
 
-  applyFilters() {
-    this.filteredIncidents = this.incidents.filter(incident => {
-      const matchesStatus = !this.statusFilter || incident.status === this.statusFilter;
-      const matchesSeverity = !this.severityFilter || incident.severity === this.severityFilter;
-      const matchesSearch = !this.searchTerm || 
-        incident.title.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        incident.description.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        incident.location.address.toLowerCase().includes(this.searchTerm.toLowerCase());
-      return matchesStatus && matchesSeverity && matchesSearch;
-    });
+  set statusFilter(value: string) {
+    this.statusFilterSubject.next(value);
   }
 
-  onFilterChange() {
-    this.applyFilters();
+  get severityFilter(): string {
+    return this.severityFilterSubject.value;
+  }
+
+  set severityFilter(value: string) {
+    this.severityFilterSubject.next(value);
+  }
+
+  get searchTerm(): string {
+    return this.searchTermSubject.value;
+  }
+
+  set searchTerm(value: string) {
+    this.searchTermSubject.next(value);
   }
 
   updateIncidentStatus(incidentId: string, newStatus: IncidentStatus) {
-    this.incidentService.updateIncident(incidentId, { status: newStatus }).subscribe(success => {
-      if (success) {
-        this.loadIncidents();
-      }
-    });
+    this.incidentService.updateIncident(incidentId, { status: newStatus }).subscribe();
   }
 
   deleteIncident(incidentId: string) {
     if (confirm('Are you sure you want to delete this incident?')) {
-      this.incidentService.deleteIncident(incidentId).subscribe(success => {
-        if (success) {
-          this.loadIncidents();
-        }
-      });
+      this.incidentService.deleteIncident(incidentId).subscribe();
     }
   }
 

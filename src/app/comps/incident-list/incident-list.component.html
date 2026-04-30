@@ -46,8 +46,8 @@
   </div>
 
   <!-- Incidents List -->
-  <div class="incidents-grid" *ngIf="!isLoading && filteredIncidents.length > 0">
-    <div class="incident-card" *ngFor="let incident of filteredIncidents">
+  <div class="incidents-grid" *ngIf="!isLoading && (filteredIncidents$ | async).length > 0">
+    <div class="incident-card" *ngFor="let incident of filteredIncidents$ | async">
       <div class="card-header">
         <h3>{{ incident.title }}</h3>
         <div class="incident-badges">
