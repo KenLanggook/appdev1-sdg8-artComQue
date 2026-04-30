@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { IncidentService } from '../../services/incident.service';
 import { AuthService } from '../../services/auth.service';
 import { Incident, IncidentStatus, IncidentSeverity } from '../../models/incident.model';
+import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-incident-list',
@@ -14,7 +15,7 @@ import { Incident, IncidentStatus, IncidentSeverity } from '../../models/inciden
   styleUrls: ['./incident-list.component.css']
 })
 export class IncidentListComponent implements OnInit {
-  incidents: Incident[] = [];
+  incidents$: Observable<Incident[]> = new Observable();
   filteredIncidents: Incident[] = [];
   statusFilter = '';
   severityFilter = '';
@@ -37,22 +38,24 @@ export class IncidentListComponent implements OnInit {
 
   loadIncidents() {
     this.isLoading = true;
-    this.incidentService.getIncidents().subscribe(data => {
-      this.incidents = data;
+    this.incidents$ = this.incidentService.getIncidents();
+    this.incidents$.subscribe(data => {
       this.applyFilters();
       this.isLoading = false;
     });
   }
 
   applyFilters() {
-    this.filteredIncidents = this.incidents.filter(incident => {
-      const matchesStatus = !this.statusFilter || incident.status === this.statusFilter;
-      const matchesSeverity = !this.severityFilter || incident.severity === this.severityFilter;
-      const matchesSearch = !this.searchTerm || 
-        incident.title.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        incident.description.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        incident.location.address.toLowerCase().includes(this.searchTerm.toLowerCase());
-      return matchesStatus && matchesSeverity && matchesSearch;
+    this.incidents$.subscribe(incidents => {
+      this.filteredIncidents = incidents.filter(incident => {
+        const matchesStatus = !this.statusFilter || incident.status === this.statusFilter;
+        const matchesSeverity = !this.severityFilter || incident.severity === this.severityFilter;
+        const matchesSearch = !this.searchTerm || 
+          incident.title.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+          incident.description.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+          incident.location.address.toLowerCase().includes(this.searchTerm.toLowerCase());
+        return matchesStatus && matchesSeverity && matchesSearch;
+      });
     });
   }
 
