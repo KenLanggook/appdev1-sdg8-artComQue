@@ -46,72 +46,74 @@
   </div>
 
   <!-- Incidents List -->
-  <div class="incidents-grid" *ngIf="!isLoading && (incidents$ | async)?.length > 0">
-    <div class="incident-card" *ngFor="let incident of incidents$ | async">
-      <div class="card-header">
-        <h3>{{ incident.title }}</h3>
-        <div class="incident-badges">
-          <span class="severity-badge" [style.background-color]="getSeverityColor(incident.severity)">
-            {{ incident.severity.toUpperCase() }}
-          </span>
-          <span class="status-badge" [style.background-color]="getStatusColor(incident.status)">
-            {{ incident.status.replace('_', ' ').toUpperCase() }}
-          </span>
-        </div>
-      </div>
-      
-      <div class="card-content">
-        <p class="incident-description">{{ incident.description }}</p>
-        
-        <div class="incident-details">
-          <div class="detail-item">
-            <span class="label">Category:</span>
-            <span class="value">{{ incident.category.replace('_', ' ').toUpperCase() }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">Location:</span>
-            <span class="value">{{ incident.location.address }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">Reported:</span>
-            <span class="value">{{ incident.reportedAt | date:'medium' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">Reporter:</span>
-            <span class="value">{{ incident.isAnonymous ? 'Anonymous' : incident.contactInfo.name }}</span>
+  <ng-container *ngIf="incidents$ | async as incidents">
+    <div class="incidents-grid" *ngIf="!isLoading && incidents.length > 0">
+      <div class="incident-card" *ngFor="let incident of incidents">
+        <div class="card-header">
+          <h3>{{ incident.title }}</h3>
+          <div class="incident-badges">
+            <span class="severity-badge" [style.background-color]="getSeverityColor(incident.severity)">
+              {{ incident.severity.toUpperCase() }}
+            </span>
+            <span class="status-badge" [style.background-color]="getStatusColor(incident.status)">
+              {{ incident.status.replace('_', ' ').toUpperCase() }}
+            </span>
           </div>
         </div>
-      </div>
-      
-      <div class="card-actions">
-        <a [routerLink]="['/incidents', incident.id]" class="btn btn-outline-primary">View Details</a>
         
-        <div class="status-actions" *ngIf="canUpdateStatus()">
-          <select 
-            class="status-select" 
-            [value]="incident.status" 
-            (change)="updateIncidentStatus(incident.id, $any($event.target).value)"
+        <div class="card-content">
+          <p class="incident-description">{{ incident.description }}</p>
+          
+          <div class="incident-details">
+            <div class="detail-item">
+              <span class="label">Category:</span>
+              <span class="value">{{ incident.category.replace('_', ' ').toUpperCase() }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Location:</span>
+              <span class="value">{{ incident.location.address }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Reported:</span>
+              <span class="value">{{ incident.reportedAt | date:'medium' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Reporter:</span>
+              <span class="value">{{ incident.isAnonymous ? 'Anonymous' : incident.contactInfo.name }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card-actions">
+          <a [routerLink]="['/incidents', incident.id]" class="btn btn-outline-primary">View Details</a>
+          
+          <div class="status-actions" *ngIf="canUpdateStatus()">
+            <select 
+              class="status-select" 
+              [value]="incident.status" 
+              (change)="updateIncidentStatus(incident.id, $any($event.target).value)"
+            >
+              <option *ngFor="let status of statuses" [value]="status">
+                {{ status.replace('_', ' ').toUpperCase() }}
+              </option>
+            </select>
+          </div>
+          
+          <button 
+            class="btn btn-danger" 
+            *ngIf="canDeleteIncident()" 
+            (click)="deleteIncident(incident.id)"
           >
-            <option *ngFor="let status of statuses" [value]="status">
-              {{ status.replace('_', ' ').toUpperCase() }}
-            </option>
-          </select>
+            Delete
+          </button>
         </div>
-        
-        <button 
-          class="btn btn-danger" 
-          *ngIf="canDeleteIncident()" 
-          (click)="deleteIncident(incident.id)"
-        >
-          Delete
-        </button>
       </div>
     </div>
-  </div>
 
-  <!-- Empty State -->
-  <div class="empty-state" *ngIf="!isLoading && (incidents$ | async)?.length === 0">
-    <p>No incidents found.</p>
-    <a routerLink="/report" class="btn btn-primary">Report First Incident</a>
-  </div>
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="!isLoading && incidents.length === 0">
+      <p>No incidents found.</p>
+      <a routerLink="/report" class="btn btn-primary">Report First Incident</a>
+    </div>
+  </ng-container>
 </div>
