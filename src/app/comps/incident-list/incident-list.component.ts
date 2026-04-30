@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { IncidentService } from '../../services/incident.service';
 import { AuthService } from '../../services/auth.service';
 import { Incident, IncidentStatus, IncidentSeverity } from '../../models/incident.model';
-import { Observable, combineLatest } from 'rxjs';
+import { Observable, combineLatest, of } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
 
 @Component({
@@ -16,7 +16,7 @@ import { map, startWith } from 'rxjs/operators';
   styleUrls: ['./incident-list.component.css']
 })
 export class IncidentListComponent implements OnInit {
-  incidents$: Observable<Incident[]> = new Observable();
+  incidents$: Observable<Incident[]> = of([]);
   statusFilter = '';
   severityFilter = '';
   searchTerm = '';
