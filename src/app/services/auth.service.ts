@@ -279,6 +279,10 @@ export class AuthService {
       return of(false);
     }
 
+    if (updates.role === UserRole.ADMIN && user.role !== UserRole.ADMIN) {
+      return of(false);
+    }
+
     if (updates.username !== undefined) user.username = updates.username;
     if (updates.email !== undefined) user.email = updates.email;
     if (updates.password !== undefined) user.password = updates.password;
