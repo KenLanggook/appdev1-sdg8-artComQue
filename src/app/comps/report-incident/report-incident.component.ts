@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, NgZone, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -12,6 +12,8 @@ import {
   ContactInfo 
 } from '../../models/incident.model';
 
+declare var L: any;
+
 @Component({
   selector: 'app-report-incident',
   standalone: true,
@@ -19,7 +21,18 @@ import {
   templateUrl: './report-incident.component.html',
   styleUrls: ['./report-incident.component.css']
 })
-export class ReportIncidentComponent {
+export class ReportIncidentComponent implements AfterViewInit, OnDestroy {
+  /** Default map / pin center (WGS84): 16°24′56″N 120°35′51″E — Leaflet [lat, lng]. */
+  private readonly MAP_CENTER_LAT = 16 + 24 / 60 + 56 / 3600;
+  private readonly MAP_CENTER_LNG = 120 + 35 / 60 + 51 / 3600;
+
+  /**
+   * Campus reporting boundary (rectangle around 16°24′56″N 120°35′51″E).
+   * Linear spans are 3/4 of the prior box (reduced by 1/4); used for outline, pan limits, and validation.
+   */
+  private readonly CAMPUS_SW: [number, number] = [16.414543, 120.595925];
+  private readonly CAMPUS_NE: [number, number] = [16.416568, 120.599075];
+
   currentUser: any = null;
   isSubmitting = false;
   errorMessage = '';
@@ -32,8 +45,8 @@ export class ReportIncidentComponent {
     category: IncidentCategory.OTHER,
     severity: IncidentSeverity.MEDIUM,
     location: {
-      latitude: 16.4166, // University of Baguio center (Gen. Luna Road)
-      longitude: 120.5931,
+      latitude: this.MAP_CENTER_LAT,
+      longitude: this.MAP_CENTER_LNG,
       address: '',
       building: '',
       floor: '',
@@ -57,14 +70,24 @@ export class ReportIncidentComponent {
   severities = Object.values(IncidentSeverity);
   witnessInput = '';
 
-  // Map related
-  showMap = false;
-  selectedLocation = { lat: 16.4106, lng: 120.5951 };
+  private map: any = null;
+  private marker: any = null;
+  private mapInitialized = false;
+
+  /** Text-only presets: they do not move the map pin; the user sets coordinates on the map. */
+  private readonly quickLocationAddresses: Record<string, string> = {
+    'Main Library': 'University of Baguio Main Library',
+    Gymnasium: 'University Gymnasium',
+    'Parking Lot': 'Faculty Parking Lot',
+    Administration: 'Administration Building',
+    Cafeteria: 'University Cafeteria'
+  };
 
   constructor(
     private authService: AuthService,
     private incidentService: IncidentService,
-    private router: Router
+    private router: Router,
+    private ngZone: NgZone
   ) {
     this.authService.getCurrentUser().subscribe(user => {
       this.currentUser = user;
@@ -76,6 +99,95 @@ export class ReportIncidentComponent {
         this.incidentData.contactInfo.department = user.profile.department || '';
       }
     });
+  }
+
+  ngAfterViewInit(): void {
+    setTimeout(() => this.initReportMap(), 0);
+  }
+
+  ngOnDestroy(): void {
+    this.destroyReportMap();
+  }
+
+  private initReportMap(): void {
+    if (this.mapInitialized) {
+      return;
+    }
+    if (typeof L === 'undefined') {
+      console.error('Leaflet not loaded');
+      return;
+    }
+    const mapEl = document.getElementById('report-map');
+    if (!mapEl) {
+      return;
+    }
+
+    const lat = this.incidentData.location.latitude;
+    const lng = this.incidentData.location.longitude;
+
+    this.map = L.map(mapEl, {
+      center: [lat, lng],
+      zoom: 17,
+      maxBounds: [this.CAMPUS_SW, this.CAMPUS_NE],
+      maxBoundsViscosity: 0.85
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(this.map);
+
+    const sw = this.CAMPUS_SW;
+    const ne = this.CAMPUS_NE;
+    L.polygon(
+      [
+        [sw[0], sw[1]],
+        [sw[0], ne[1]],
+        [ne[0], ne[1]],
+        [ne[0], sw[1]],
+        [sw[0], sw[1]]
+      ],
+      {
+        color: '#dc3545',
+        weight: 2,
+        opacity: 0.95,
+        fillColor: '#dc3545',
+        fillOpacity: 0.06
+      }
+    ).addTo(this.map);
+
+    this.marker = L.marker([lat, lng], { draggable: true }).addTo(this.map);
+
+    this.map.on('click', (e: any) => {
+      const ll = e.latlng;
+      this.marker.setLatLng(ll);
+      this.ngZone.run(() => {
+        this.incidentData.location.latitude = ll.lat;
+        this.incidentData.location.longitude = ll.lng;
+      });
+    });
+
+    this.marker.on('dragend', () => {
+      const ll = this.marker.getLatLng();
+      this.ngZone.run(() => {
+        this.incidentData.location.latitude = ll.lat;
+        this.incidentData.location.longitude = ll.lng;
+      });
+    });
+
+    this.mapInitialized = true;
+    const resize = () => this.map?.invalidateSize();
+    this.map.whenReady(resize);
+    setTimeout(resize, 200);
+  }
+
+  private destroyReportMap(): void {
+    if (this.map) {
+      this.map.remove();
+      this.map = null;
+      this.marker = null;
+      this.mapInitialized = false;
+    }
   }
 
   onSubmit() {
@@ -110,7 +222,7 @@ export class ReportIncidentComponent {
         this.isSubmitting = false;
         this.successMessage = 'Incident reported successfully! Redirecting to dashboard...';
         setTimeout(() => {
-          this.router.navigate(['/']);
+          this.router.navigate(['/dashboard']);
         }, 2000);
       },
       (error) => {
@@ -154,16 +266,12 @@ export class ReportIncidentComponent {
   }
 
   private isWithinCampusBounds(latitude: number, longitude: number): boolean {
-    // University of Baguio campus boundaries (Gen. Luna Road)
-    const CAMPUS_BOUNDS = {
-      southwest: [16.4140, 120.5910],
-      northeast: [16.4190, 120.5950]
-    };
-
-    return latitude >= CAMPUS_BOUNDS.southwest[0] && 
-           latitude <= CAMPUS_BOUNDS.northeast[0] &&
-           longitude >= CAMPUS_BOUNDS.southwest[1] && 
-           longitude <= CAMPUS_BOUNDS.northeast[1];
+    return (
+      latitude >= this.CAMPUS_SW[0] &&
+      latitude <= this.CAMPUS_NE[0] &&
+      longitude >= this.CAMPUS_SW[1] &&
+      longitude <= this.CAMPUS_NE[1]
+    );
   }
 
   addWitness() {
@@ -177,30 +285,14 @@ export class ReportIncidentComponent {
     this.incidentData.witnesses.splice(index, 1);
   }
 
-  toggleMap() {
-    this.showMap = !this.showMap;
-  }
-
-  onLocationSelect(location: { lat: number; lng: number }) {
-    this.selectedLocation = location;
-    this.incidentData.location.latitude = location.lat;
-    this.incidentData.location.longitude = location.lng;
-  }
-
-  // Quick location presets
-  setQuickLocation(location: string) {
-    const locations: Record<string, string> = {
-      'Main Library': 'University of Baguio Main Library',
-      'Gymnasium': 'University Gymnasium',
-      'Parking Lot': 'Faculty Parking Lot',
-      'Administration': 'Administration Building',
-      'Cafeteria': 'University Cafeteria'
-    };
-    
-    this.incidentData.location.address = locations[location] || location;
+  setQuickLocation(key: string) {
+    const address = this.quickLocationAddresses[key];
+    if (address) {
+      this.incidentData.location.address = address;
+    }
   }
 
   cancel() {
-    this.router.navigate(['/']);
+    this.router.navigate(['/dashboard']);
   }
 }

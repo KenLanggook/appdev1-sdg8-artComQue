@@ -3,7 +3,7 @@
     <div class="page-header">
       <button class="btn btn-outline" (click)="goBack()">Back to Incidents</button>
       <div class="header-actions">
-        <button class="btn btn-primary" (click)="editIncident()" *ngIf="canUpdateStatus()">Edit</button>
+        <button class="btn btn-primary" (click)="editIncident()" *ngIf="canEditIncidentRecord()">Edit</button>
         <button class="btn btn-info" (click)="printIncident()" *ngIf="isAdmin">
           🖨️ Print
         </button>

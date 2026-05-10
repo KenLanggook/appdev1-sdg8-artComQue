@@ -1,8 +1,9 @@
-import { Component, OnInit, AfterViewInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { IncidentService } from '../../services/incident.service';
 import { AuthService } from '../../services/auth.service';
-import { MapMarker, Incident } from '../../models/incident.model';
+import { MapMarker, Incident, IncidentStatus } from '../../models/incident.model';
 
 declare var L: any;
 
@@ -13,38 +14,47 @@ declare var L: any;
   templateUrl: './incident-map.component.html',
   styleUrls: ['./incident-map.component.css']
 })
-export class IncidentMapComponent implements OnInit, AfterViewInit {
+export class IncidentMapComponent implements OnInit, AfterViewInit, OnDestroy {
   markers: MapMarker[] = [];
   selectedIncident: Incident | null = null;
   map: any;
+  private incidentLayerGroup: any = null;
   isUserAuthenticated = false;
   isAdmin = false;
+  isSecurity = false;
   mapInitialized = false;
-  incidentMarkers: any[] = [];
+  statusPickerOpen = false;
+  assignPickerOpen = false;
 
-  // University of Baguio coordinates from 16°24'56"N, 120°35'51"E
-  private readonly UB_LATITUDE = 16.415556;
-  private readonly UB_LONGITUDE = 120.5975;
-  
-  // University of Baguio campus boundaries relative to map center
-  private readonly CAMPUS_BOUNDARY_OFFSET = 0.0025;
+  readonly incidentStatusOptions: IncidentStatus[] = [
+    IncidentStatus.REPORTED,
+    IncidentStatus.INVESTIGATING,
+    IncidentStatus.RESOLVED,
+    IncidentStatus.CLOSED,
+    IncidentStatus.FALSE_ALARM
+  ];
 
-  private getCampusBounds() {
-    return {
-      southwest: [
-        this.UB_LATITUDE - this.CAMPUS_BOUNDARY_OFFSET,
-        this.UB_LONGITUDE - this.CAMPUS_BOUNDARY_OFFSET
-      ],
-      northeast: [
-        this.UB_LATITUDE + this.CAMPUS_BOUNDARY_OFFSET,
-        this.UB_LONGITUDE + this.CAMPUS_BOUNDARY_OFFSET
-      ]
-    };
+  /**
+   * Map center (WGS84): 16°24′56″N 120°35′51″E
+   * (≈ 16.415556°N, 120.597500°E). Leaflet expects [latitude, longitude].
+   */
+  private readonly MAP_CENTER_LAT = 16 + 24 / 60 + 56 / 3600;
+  private readonly MAP_CENTER_LNG = 120 + 35 / 60 + 51 / 3600;
+  private readonly DEFAULT_ZOOM = 18;
+
+  /** Same campus reporting rectangle as report form + API validation */
+  private readonly CAMPUS_SW: [number, number] = [16.414543, 120.595925];
+  private readonly CAMPUS_NE: [number, number] = [16.416568, 120.599075];
+
+  private getMapCenter(): [number, number] {
+    return [this.MAP_CENTER_LAT, this.MAP_CENTER_LNG];
   }
 
   constructor(
     private incidentService: IncidentService,
-    private authService: AuthService
+    private authService: AuthService,
+    private ngZone: NgZone,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -58,11 +68,90 @@ export class IncidentMapComponent implements OnInit, AfterViewInit {
     }, 0);
   }
 
+  ngOnDestroy(): void {
+    if (this.map) {
+      this.map.remove();
+      this.map = null;
+      this.incidentLayerGroup = null;
+      this.mapInitialized = false;
+    }
+  }
+
   private checkAuthStatus() {
     this.authService.isAuthenticated().subscribe(isAuth => {
       this.isUserAuthenticated = isAuth;
       this.isAdmin = this.authService.isAdmin();
+      this.isSecurity = this.authService.isSecurity();
     });
+  }
+
+  canManageIncidents(): boolean {
+    return this.isAdmin || this.isSecurity;
+  }
+
+  editSelectedIncident(): void {
+    if (!this.selectedIncident) {
+      return;
+    }
+    this.router.navigate(['/incidents', this.selectedIncident.id]);
+  }
+
+  toggleStatusPicker(): void {
+    this.assignPickerOpen = false;
+    this.statusPickerOpen = !this.statusPickerOpen;
+  }
+
+  toggleAssignPicker(): void {
+    this.statusPickerOpen = false;
+    this.assignPickerOpen = !this.assignPickerOpen;
+  }
+
+  formatStatusLabel(status: IncidentStatus): string {
+    return status.replace(/_/g, ' ');
+  }
+
+  applyStatus(status: IncidentStatus): void {
+    if (!this.selectedIncident) {
+      return;
+    }
+    const updates: Partial<Incident> = { status };
+    if (status === IncidentStatus.RESOLVED) {
+      updates.resolvedAt = new Date();
+    }
+    this.incidentService.updateIncident(this.selectedIncident.id, updates).subscribe({
+      next: updated => {
+        this.ngZone.run(() => {
+          this.selectedIncident = updated;
+          this.loadMarkers();
+          this.statusPickerOpen = false;
+        });
+      },
+      error: err => {
+        console.error(err);
+        alert(err?.message ?? 'Could not update status.');
+      }
+    });
+  }
+
+  assignToStaff(assignee: string): void {
+    if (!this.selectedIncident) {
+      return;
+    }
+    this.incidentService
+      .updateIncident(this.selectedIncident.id, { assignedTo: assignee })
+      .subscribe({
+        next: updated => {
+          this.ngZone.run(() => {
+            this.selectedIncident = updated;
+            this.loadMarkers();
+            this.assignPickerOpen = false;
+          });
+        },
+        error: err => {
+          console.error(err);
+          alert(err?.message ?? 'Could not assign incident.');
+        }
+      });
   }
 
   private initializeMap() {
@@ -77,21 +166,18 @@ export class IncidentMapComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // Initialize Leaflet map centered on University of Baguio with boundary restrictions
-    const campusBounds = this.getCampusBounds();
+    // Map view stays centered on official University of Baguio (16°24′56″N 120°35′51″E); do not fitBounds on load.
     const mapElement = document.getElementById('map');
     if (mapElement) {
+      const center = this.getMapCenter();
       this.map = L.map('map', {
-        center: [this.UB_LATITUDE, this.UB_LONGITUDE],
-        zoom: 18,
-        zoomControl: false,
-        maxBounds: [
-          campusBounds.southwest,
-          campusBounds.northeast
-        ],
-        maxBoundsViscosity: 1.0, // Prevents panning outside bounds
+        center,
+        zoom: this.DEFAULT_ZOOM,
+        zoomControl: true,
         minZoom: 16,
-        maxZoom: 20
+        maxZoom: 20,
+        maxBounds: [this.CAMPUS_SW, this.CAMPUS_NE],
+        maxBoundsViscosity: 0.85
       });
       
       // Add OpenStreetMap tile layer
@@ -99,85 +185,133 @@ export class IncidentMapComponent implements OnInit, AfterViewInit {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 20
       }).addTo(this.map);
+
+      const sw = this.CAMPUS_SW;
+      const ne = this.CAMPUS_NE;
+      L.polygon(
+        [
+          [sw[0], sw[1]],
+          [sw[0], ne[1]],
+          [ne[0], ne[1]],
+          [ne[0], sw[1]],
+          [sw[0], sw[1]]
+        ],
+        {
+          color: '#dc3545',
+          weight: 2,
+          opacity: 0.95,
+          fillColor: '#dc3545',
+          fillOpacity: 0.06
+        }
+      ).addTo(this.map);
+
+      this.incidentLayerGroup = L.layerGroup().addTo(this.map);
       
       this.mapInitialized = true;
-      
-      // Add University of Baguio campus boundary with red line
-      this.addCampusBoundary();
-      
-      // Add markers to map
-      this.addMarkersToMap();
-      
-      // Add campus buildings
+
+      // Recenter after layout (grid/flex often reports wrong size on first paint)
+      const applyCenter = () => {
+        if (!this.map) {
+          return;
+        }
+        this.map.invalidateSize();
+        this.map.setView(center, this.DEFAULT_ZOOM, { animate: false });
+      };
+      this.map.whenReady(applyCenter);
+      setTimeout(applyCenter, 0);
+
+      // Reference buildings (below incident pins — pins use z-index offset)
       this.addCampusBuildings();
-      
+
       // Add severity legend as a map-bound control
       this.addSeverityLegend();
+
+      // Lock viewport to official coordinates after layers (layout/size can shift first paint)
+      const centerRef = this.getMapCenter();
+      const snapToOfficialCenter = () => {
+        if (!this.map) {
+          return;
+        }
+        this.map.invalidateSize();
+        this.map.setView(centerRef, this.DEFAULT_ZOOM, { animate: false });
+      };
+      queueMicrotask(snapToOfficialCenter);
+      setTimeout(snapToOfficialCenter, 100);
+
+      this.refreshIncidentMarkersOnMap(this.markers);
     }
   }
 
-  private addCampusBoundary() {
-    const campusBounds = this.getCampusBounds();
-    // University of Baguio campus boundary coordinates
-    const campusCoordinates = [
-      [campusBounds.southwest[0], campusBounds.southwest[1]], // Southwest corner
-      [campusBounds.southwest[0], campusBounds.northeast[1]], // Southeast corner
-      [campusBounds.northeast[0], campusBounds.northeast[1]], // Northeast corner
-      [campusBounds.northeast[0], campusBounds.southwest[1]], // Northwest corner
-      [campusBounds.southwest[0], campusBounds.southwest[1]]  // Back to start
-    ];
+  private refreshIncidentMarkersOnMap(markerData: MapMarker[]): void {
+    if (!this.map || !this.incidentLayerGroup || typeof L === 'undefined') {
+      return;
+    }
+    this.incidentLayerGroup.clearLayers();
+    for (const m of markerData) {
+      const color = this.getSeverityColor(m.incident.severity);
+      const leafletMarker = L.marker([m.position.lat, m.position.lng], {
+        zIndexOffset: 750,
+        icon: L.divIcon({
+          className: 'incident-map-pin-icon',
+          html: this.incidentPinIconHtml(color),
+          iconSize: [28, 36],
+          iconAnchor: [14, 34]
+        })
+      });
+      leafletMarker.bindPopup(
+        `<strong>${this.escapeHtml(m.title)}</strong><br>${this.escapeHtml(m.incident.location.address)}`
+      );
+      leafletMarker.on('click', () => {
+        this.ngZone.run(() => this.selectIncident(m.incident));
+      });
+      leafletMarker.addTo(this.incidentLayerGroup);
+    }
+  }
 
-    // Add red boundary line around campus
-    const campusBoundary = L.polygon(campusCoordinates, {
-      color: '#dc3545', // Red color for boundary
-      weight: 3,
-      opacity: 1.0,
-      fillColor: '#dc3545',
-      fillOpacity: 0.05
-    }).addTo(this.map);
+  private incidentPinIconHtml(fillColor: string): string {
+    const fill = fillColor.replace(/[<>"']/g, '');
+    return `
+<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36" aria-hidden="true">
+  <path fill="${fill}" stroke="#ffffff" stroke-width="2"
+    d="M14 2C8.48 2 4 6.24 4 11.2c0 7.2 10 20.8 10 20.8s10-13.6 10-20.8C24 6.24 19.52 2 14 2z"/>
+  <circle cx="14" cy="11" r="3.5" fill="#ffffff"/>
+</svg>`.trim();
+  }
 
-    // Add boundary label
-    const centerPoint = [
-      (campusBounds.southwest[0] + campusBounds.northeast[0]) / 2,
-      (campusBounds.southwest[1] + campusBounds.northeast[1]) / 2
-    ];
-    
-    L.marker(centerPoint, {
-      icon: L.divIcon({
-        className: 'boundary-label',
-        html: '<div style="background: rgba(220, 53, 69, 0.9); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; white-space: nowrap;">UNIVERSITY OF BAGUIO CAMPUS</div>',
-        iconSize: [200, 20],
-        iconAnchor: [100, 10]
-      })
-    }).addTo(this.map);
+  private escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   private addCampusBuildings() {
-    // Important University of Baguio campus buildings
+    // Approximate positions near campus center (aligned with current incident coordinates)
     const buildings = [
       {
         name: 'Main Building',
-        position: [16.4166, 120.5931],
+        position: [16.4156, 120.597],
         icon: 'blue'
       },
       {
         name: 'University Library',
-        position: [16.4170, 120.5935],
+        position: [16.4158, 120.5965],
         icon: 'green'
       },
       {
         name: 'Gymnasium',
-        position: [16.4160, 120.5935],
+        position: [16.4153, 120.5988],
         icon: 'orange'
       },
       {
         name: 'Administration Building',
-        position: [16.4175, 120.5925],
+        position: [16.4159, 120.5961],
         icon: 'purple'
       },
       {
         name: 'Science Building',
-        position: [16.4155, 120.5928],
+        position: [16.4152, 120.5978],
         icon: 'red'
       }
     ];
@@ -235,90 +369,34 @@ export class IncidentMapComponent implements OnInit, AfterViewInit {
 
   private loadMarkers() {
     this.incidentService.getMapMarkers().subscribe(markers => {
-      this.markers = markers;
-      if (this.map) {
-        this.addMarkersToMap();
-      }
-    });
-  }
-
-  private addMarkersToMap() {
-    if (!this.map || !this.markers) return;
-
-    // Clear existing incident markers
-    this.incidentMarkers.forEach(marker => this.map.removeLayer(marker));
-    this.incidentMarkers = [];
-
-    // Add new incident markers
-    this.markers.forEach(marker => {
-      const mapMarker = L.marker([marker.position.lat, marker.position.lng], {
-        icon: L.divIcon({
-          className: 'custom-div-icon',
-          html: `<div style="background-color: ${this.getSeverityColor(marker.incident.severity)}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white;"></div>`,
-          iconSize: [20, 20],
-          iconAnchor: [10, 10]
-        })
-      }).addTo(this.map);
-
-      // Create popup for incident details
-      const popupContent = this.createIncidentPopupContent(marker.incident);
-      mapMarker.bindPopup(popupContent);
-
-      // Add click listener
-      mapMarker.on('click', () => {
-        this.selectIncident(marker.incident);
+      this.ngZone.run(() => {
+        this.markers = markers;
       });
-
-      this.incidentMarkers.push(mapMarker);
+      this.refreshIncidentMarkersOnMap(markers);
     });
-  }
-
-  private createIncidentPopupContent(incident: Incident): string {
-    const severityColor = this.getSeverityColor(incident.severity);
-    const statusColor = this.getStatusColor(incident.status);
-    
-    return `
-      <div style="padding: 12px; max-width: 250px;">
-        <h4 style="margin: 0 0 8px 0; color: #333;">${incident.title}</h4>
-        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-          <span style="background: ${severityColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">
-            ${incident.severity.toUpperCase()}
-          </span>
-          <span style="background: ${statusColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">
-            ${incident.status.replace('_', ' ').toUpperCase()}
-          </span>
-        </div>
-        <p style="margin: 0 0 8px 0; color: #666; font-size: 13px;">${incident.description}</p>
-        <p style="margin: 0 0 4px 0; color: #333; font-size: 12px;">
-          <strong>Location:</strong> ${incident.location.address}
-        </p>
-        <p style="margin: 0; color: #333; font-size: 12px;">
-          <strong>Reported:</strong> ${new Date(incident.reportedAt).toLocaleDateString()}
-        </p>
-        <button onclick="window.location.href='/incidents/${incident.id}'" 
-                style="background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-top: 8px;">
-          View Details
-        </button>
-      </div>
-    `;
-  }
-
-  private getMarkerIcon(severity: string): string {
-    const iconColors: Record<string, string> = {
-      'critical': 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-      'high': 'http://maps.google.com/mapfiles/ms/icons/orange-dot.png',
-      'medium': 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png',
-      'low': 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
-    };
-    return iconColors[severity] || iconColors['low'];
   }
 
   selectIncident(incident: Incident) {
-    this.selectedIncident = incident;
+    this.ngZone.run(() => {
+      this.selectedIncident = incident;
+    });
+    if (
+      this.map &&
+      incident.location?.latitude != null &&
+      incident.location?.longitude != null
+    ) {
+      const lat = incident.location.latitude;
+      const lng = incident.location.longitude;
+      this.map.flyTo([lat, lng], Math.max(this.map.getZoom(), this.DEFAULT_ZOOM), {
+        duration: 0.45
+      });
+    }
   }
 
   closeIncidentDetails() {
     this.selectedIncident = null;
+    this.statusPickerOpen = false;
+    this.assignPickerOpen = false;
   }
 
   getSeverityColor(severity: string): string {
@@ -360,7 +438,8 @@ export class IncidentMapComponent implements OnInit, AfterViewInit {
 
   resetMap() {
     if (this.map) {
-      this.map.setView([this.UB_LATITUDE, this.UB_LONGITUDE], 17);
+      this.map.invalidateSize();
+      this.map.setView(this.getMapCenter(), this.DEFAULT_ZOOM, { animate: false });
     }
   }
 
@@ -421,7 +500,7 @@ export class IncidentMapComponent implements OnInit, AfterViewInit {
                 <li>Administration Building</li>
                 <li>Parking Areas</li>
               </ul>
-              <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">Incident Markers:</h4>
+              <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">Incidents by severity:</h4>
               <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                 ${this.markers.map(marker => `
                   <div style="

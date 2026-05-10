@@ -40,8 +40,8 @@ export class IncidentService {
         severity: IncidentSeverity.HIGH,
         status: IncidentStatus.INVESTIGATING,
         location: {
-          latitude: 16.4170,
-          longitude: 120.5935,
+          latitude: 16.4158,
+          longitude: 120.5965,
           address: 'University of Baguio Main Library',
           building: 'Main Library',
           floor: '2nd Floor',
@@ -71,8 +71,8 @@ export class IncidentService {
         severity: IncidentSeverity.MEDIUM,
         status: IncidentStatus.REPORTED,
         location: {
-          latitude: 16.4175,
-          longitude: 120.5925,
+          latitude: 16.4159,
+          longitude: 120.5961,
           address: 'Faculty Parking Lot',
           building: 'Administration Building',
           landmark: 'Near main entrance'
@@ -97,8 +97,8 @@ export class IncidentService {
         severity: IncidentSeverity.HIGH,
         status: IncidentStatus.RESOLVED,
         location: {
-          latitude: 16.4160,
-          longitude: 120.5935,
+          latitude: 16.4153,
+          longitude: 120.5988,
           address: 'University Gymnasium',
           building: 'Sports Complex',
           floor: 'Ground Floor'
@@ -154,16 +154,16 @@ export class IncidentService {
   }
 
   private isWithinCampusBounds(latitude: number, longitude: number): boolean {
-    // University of Baguio campus boundaries (Gen. Luna Road)
-    const CAMPUS_BOUNDS = {
-      southwest: [16.4140, 120.5910],
-      northeast: [16.4190, 120.5950]
-    };
+    // Same as new-report map (spans are 3/4 of the prior rectangle; centered on official UB point)
+    const southwest: [number, number] = [16.414543, 120.595925];
+    const northeast: [number, number] = [16.416568, 120.599075];
 
-    return latitude >= CAMPUS_BOUNDS.southwest[0] && 
-           latitude <= CAMPUS_BOUNDS.northeast[0] &&
-           longitude >= CAMPUS_BOUNDS.southwest[1] && 
-           longitude <= CAMPUS_BOUNDS.northeast[1];
+    return (
+      latitude >= southwest[0] &&
+      latitude <= northeast[0] &&
+      longitude >= southwest[1] &&
+      longitude <= northeast[1]
+    );
   }
 
   updateIncident(id: string, updates: Partial<Incident>): Observable<Incident> {

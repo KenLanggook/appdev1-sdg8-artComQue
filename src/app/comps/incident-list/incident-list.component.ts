@@ -1,12 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { IncidentService } from '../../services/incident.service';
 import { AuthService } from '../../services/auth.service';
-import { Incident, IncidentStatus, IncidentSeverity } from '../../models/incident.model';
-import { Observable, combineLatest, of } from 'rxjs';
-import { map, startWith } from 'rxjs/operators';
+import { Incident, IncidentStatus, IncidentSeverity, User } from '../../models/incident.model';
+import { Observable, of } from 'rxjs';
 
 @Component({
   selector: 'app-incident-list',
@@ -22,18 +21,41 @@ export class IncidentListComponent implements OnInit {
   searchTerm = '';
   isLoading = false;
   isAdmin = false;
+  currentUser: User | null = null;
 
   statuses = Object.values(IncidentStatus);
   severities = Object.values(IncidentSeverity);
 
   constructor(
     private incidentService: IncidentService,
-    private authService: AuthService
+    private authService: AuthService,
+    private router: Router
   ) {}
 
   ngOnInit() {
-    this.isAdmin = this.authService.isAdmin();
+    this.authService.getCurrentUser().subscribe(user => {
+      this.currentUser = user;
+      this.isAdmin = this.authService.isAdmin();
+    });
     this.loadIncidents();
+  }
+
+  /** Admin/security, or the user who filed the report (`reportedBy` is user id or username in mock data). */
+  canEditIncidentContent(incident: Incident): boolean {
+    if (this.isAdmin || this.authService.isSecurity()) {
+      return true;
+    }
+    const u = this.currentUser;
+    if (!u) {
+      return false;
+    }
+    return incident.reportedBy === u.id || incident.reportedBy === u.username;
+  }
+
+  goToEditIncident(incident: Incident, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.router.navigate(['/incidents', incident.id], { queryParams: { edit: '1' } });
   }
 
   loadIncidents() {

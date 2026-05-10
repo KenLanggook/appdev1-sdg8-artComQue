@@ -1,7 +1,7 @@
 <div class="incident-map-container">
   <div class="map-header">
     <h2>University of Baguio Incident Map</h2>
-    <p>Click on markers to view incident details</p>
+    <p>Select an incident or tap a severity-colored pin on the map. The red outline matches the incident report map and shows where reports may be placed.</p>
   </div>
 
   <div class="map-layout">
@@ -58,6 +58,9 @@
           <div class="detail-row">
             <strong>Updated:</strong> {{ selectedIncident.updatedAt | date:'medium' }}
           </div>
+          <div class="detail-row">
+            <strong>Assigned to:</strong> {{ selectedIncident.assignedTo || 'Unassigned' }}
+          </div>
         </div>
 
         <div class="contact-info" *ngIf="!selectedIncident.isAnonymous || isAdmin">
@@ -93,10 +96,30 @@
           <p>{{ selectedIncident.additionalNotes }}</p>
         </div>
 
-        <div class="incident-actions" *ngIf="isAdmin">
-          <button class="btn btn-primary">Edit Incident</button>
-          <button class="btn btn-info">Update Status</button>
-          <button class="btn btn-success">Assign to Staff</button>
+        <div class="incident-actions" *ngIf="canManageIncidents()">
+          <button type="button" class="btn btn-primary" (click)="editSelectedIncident()">Edit Incident</button>
+          <button type="button" class="btn btn-info" (click)="toggleStatusPicker()">
+            {{ statusPickerOpen ? 'Hide status options' : 'Update Status' }}
+          </button>
+          <div class="action-subpanel" *ngIf="statusPickerOpen">
+            <button
+              type="button"
+              class="btn btn-outline"
+              *ngFor="let s of incidentStatusOptions"
+              (click)="applyStatus(s)"
+            >
+              Set to {{ formatStatusLabel(s) | uppercase }}
+            </button>
+          </div>
+          <button type="button" class="btn btn-success" (click)="toggleAssignPicker()">
+            {{ assignPickerOpen ? 'Hide assign options' : 'Assign to Staff' }}
+          </button>
+          <div class="action-subpanel" *ngIf="assignPickerOpen">
+            <button type="button" class="btn btn-outline" (click)="assignToStaff('security')">Security team</button>
+            <button type="button" class="btn btn-outline" (click)="assignToStaff('admin')">Administration</button>
+            <button type="button" class="btn btn-outline" (click)="assignToStaff('facilities')">Facilities</button>
+            <button type="button" class="btn btn-outline" (click)="assignToStaff('medical')">Medical / clinic</button>
+          </div>
         </div>
       </div>
     </div>

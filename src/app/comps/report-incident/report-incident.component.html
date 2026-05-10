@@ -71,7 +71,7 @@
       </div>
 
       <div class="quick-locations">
-        <label>Quick Locations:</label>
+        <label>Quick Locations (address only — use the map below to set the pin):</label>
         <div class="location-buttons">
           <button type="button" class="btn btn-outline" (click)="setQuickLocation('Main Library')">Main Library</button>
           <button type="button" class="btn btn-outline" (click)="setQuickLocation('Gymnasium')">Gymnasium</button>
@@ -79,6 +79,16 @@
           <button type="button" class="btn btn-outline" (click)="setQuickLocation('Administration')">Administration</button>
           <button type="button" class="btn btn-outline" (click)="setQuickLocation('Cafeteria')">Cafeteria</button>
         </div>
+      </div>
+
+      <div class="map-section">
+        <label class="map-label">Pin location on campus map *</label>
+        <p class="map-hint">The red outline is the campus reporting area (around 16°24′56″N 120°35′51″E). Click the map or drag the pin to set the exact location; coordinates are saved with your report.</p>
+        <div id="report-map" class="report-leaflet-map" role="application" aria-label="Campus map to select incident location"></div>
+        <p class="coordinates-readout">
+          Latitude {{ incidentData.location.latitude | number:'1.5-5' }},
+          longitude {{ incidentData.location.longitude | number:'1.5-5' }}
+        </p>
       </div>
 
       <div class="form-row">
@@ -129,18 +139,6 @@
         </div>
       </div>
 
-      <div class="map-section">
-        <button type="button" class="btn btn-outline" (click)="toggleMap()">
-          {{ showMap ? 'Hide Map' : 'Show Map' }}
-        </button>
-        
-        <div class="map-container" *ngIf="showMap">
-          <div class="simple-map">
-            <p>Interactive map would be displayed here</p>
-            <p>Selected: {{ selectedLocation.lat.toFixed(4) }}, {{ selectedLocation.lng.toFixed(4) }}</p>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Contact Information -->

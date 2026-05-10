@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { IncidentService } from '../../services/incident.service';
 import { AuthService } from '../../services/auth.service';
 import { PdfService } from '../../services/pdf.service';
-import { Incident, IncidentStatus, IncidentSeverity } from '../../models/incident.model';
+import { Incident, IncidentStatus, IncidentSeverity, User } from '../../models/incident.model';
 
 @Component({
   selector: 'app-incident-details',
@@ -18,6 +18,7 @@ export class IncidentDetailsComponent implements OnInit {
   isLoading = true;
   isAdmin = false;
   isSecurity = false;
+  currentUser: User | null = null;
   IncidentStatus = IncidentStatus;
 
   constructor(
@@ -29,20 +30,44 @@ export class IncidentDetailsComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.isAdmin = this.authService.isAdmin();
-    this.isSecurity = this.authService.isSecurity();
-    
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.loadIncident(id);
-    }
+    this.authService.getCurrentUser().subscribe(user => {
+      this.currentUser = user;
+      this.isAdmin = this.authService.isAdmin();
+      this.isSecurity = this.authService.isSecurity();
+      const id = this.route.snapshot.paramMap.get('id');
+      if (id) {
+        this.loadIncident(id);
+      }
+    });
   }
 
   loadIncident(id: string) {
-    this.incidentService.getIncidentById(id).subscribe(data => {
-      this.incident = data;
-      this.isLoading = false;
+    this.isLoading = true;
+    this.incidentService.getIncidentById(id).subscribe({
+      next: data => {
+        this.incident = data;
+        this.isLoading = false;
+        this.maybeStartEditFromQuery();
+      },
+      error: () => {
+        this.isLoading = false;
+      }
     });
+  }
+
+  private maybeStartEditFromQuery(): void {
+    if (this.route.snapshot.queryParamMap.get('edit') !== '1') {
+      return;
+    }
+    if (!this.canEditIncidentRecord()) {
+      return;
+    }
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true
+    });
+    queueMicrotask(() => this.editIncident());
   }
 
   updateStatus(newStatus: IncidentStatus) {
@@ -86,6 +111,21 @@ export class IncidentDetailsComponent implements OnInit {
     return this.isAdmin || this.isSecurity;
   }
 
+  /** Who may change title/description: staff or original reporter. */
+  canEditIncidentRecord(): boolean {
+    if (!this.incident) {
+      return false;
+    }
+    if (this.isAdmin || this.isSecurity) {
+      return true;
+    }
+    const u = this.currentUser;
+    if (!u) {
+      return false;
+    }
+    return this.incident.reportedBy === u.id || this.incident.reportedBy === u.username;
+  }
+
   canDeleteIncident(): boolean {
     return this.isAdmin;
   }
@@ -95,8 +135,39 @@ export class IncidentDetailsComponent implements OnInit {
   }
 
   editIncident() {
-    // Navigate to edit incident page (to be implemented)
-    console.log('Edit incident functionality to be implemented');
+    if (!this.incident || !this.canEditIncidentRecord()) {
+      return;
+    }
+    const title = window.prompt('Incident title', this.incident.title);
+    if (title === null) {
+      return;
+    }
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      alert('Title cannot be empty.');
+      return;
+    }
+    const description = window.prompt('Description', this.incident.description);
+    if (description === null) {
+      return;
+    }
+    const trimmedDescription = description.trim();
+    if (!trimmedDescription) {
+      alert('Description cannot be empty.');
+      return;
+    }
+    this.incidentService
+      .updateIncident(this.incident.id, {
+        title: trimmedTitle,
+        description: trimmedDescription
+      })
+      .subscribe({
+        next: () => this.loadIncident(this.incident!.id),
+        error: err => {
+          console.error(err);
+          alert(err?.message ?? 'Could not save changes.');
+        }
+      });
   }
 
   printIncident() {

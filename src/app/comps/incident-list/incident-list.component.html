@@ -87,7 +87,15 @@
         
         <div class="card-actions">
           <a [routerLink]="['/incidents', incident.id]" class="btn btn-outline-primary">View Details</a>
-          
+          <button
+            type="button"
+            class="btn btn-primary"
+            *ngIf="canEditIncidentContent(incident)"
+            (click)="goToEditIncident(incident, $event)"
+          >
+            Edit
+          </button>
+
           <div class="status-actions" *ngIf="canUpdateStatus()">
             <select 
               class="status-select" 

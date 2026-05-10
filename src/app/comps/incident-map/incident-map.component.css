@@ -78,10 +78,20 @@
   color: #007bff;
 }
 
+/* Match report-incident leaflet map framing */
 .google-map {
   width: 100%;
   height: 100%;
   border-radius: 8px;
+  border: 1px solid #ddd;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* Leaflet appends pins here; severity pin SVG shadow */
+:host ::ng-deep .leaflet-div-icon.incident-map-pin-icon svg {
+  display: block;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
 }
 
 .map-loading {
@@ -293,8 +303,38 @@
 
 .incident-actions {
   display: flex;
+  flex-direction: column;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.incident-actions > .btn {
+  width: 100%;
+}
+
+.action-subpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0 4px 0;
+  border-top: 1px solid #e9ecef;
+}
+
+.action-subpanel .btn-outline {
+  background: #fff;
+  border: 1px solid #ced4da;
+  color: #333;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.action-subpanel .btn-outline:hover {
+  background: #f8f9fa;
+  border-color: #007bff;
+  color: #007bff;
 }
 
 .btn {
